@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arcaea · 随机曲目抽取器</title>
+<style>
+  :root{
+    --bg:#0a0118; --bg2:#150a2b; --card:rgba(30,16,58,.62);
+    --purple:#9d4edd; --blue:#4cc9f0; --pink:#f72585; --cyan:#00f5d4;
+    --gold:#ffd60a; --text:#ece6fb; --dim:#9a8ec0; --line:rgba(157,78,221,.35);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{overflow-x:hidden}
+  body{margin:0;background:var(--bg);color:var(--text);overflow-x:hidden;max-width:100vw;
+    font-family:"PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+    display:flex;justify-content:center;padding:18px 14px 40px}
+  .bg{position:fixed;inset:0;z-index:-2;background:
+    radial-gradient(900px 600px at 12% -10%,rgba(157,78,221,.30),transparent 60%),
+    radial-gradient(800px 600px at 92% 8%,rgba(76,201,240,.22),transparent 60%),
+    radial-gradient(700px 700px at 50% 115%,rgba(247,37,133,.18),transparent 60%),
+    linear-gradient(180deg,var(--bg),var(--bg2) 60%,var(--bg))}
+  .grid{position:fixed;inset:0;z-index:-1;opacity:.14;
+    background-image:linear-gradient(rgba(157,78,221,.5) 1px,transparent 1px),
+                     linear-gradient(90deg,rgba(157,78,221,.5) 1px,transparent 1px);
+    background-size:44px 44px;
+    -webkit-mask-image:radial-gradient(circle at 50% 35%,#000 20%,transparent 78%);
+    mask-image:radial-gradient(circle at 50% 35%,#000 20%,transparent 78%)}
+  .star{position:fixed;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.45;z-index:-1;animation:tw 3s ease-in-out infinite}
+  @keyframes tw{0%,100%{opacity:.12;transform:scale(.8)}50%{opacity:.7;transform:scale(1.2)}}
+  .wrap{width:100%;max-width:600px;min-width:0;overflow-x:hidden}
+  header{text-align:center;margin-bottom:16px}
+  .brand{font-size:12px;letter-spacing:.42em;color:var(--dim)}
+  h1{margin:6px 0 0;font-size:23px;font-weight:800;letter-spacing:.05em;
+    background:linear-gradient(92deg,var(--cyan),var(--blue),var(--purple),var(--pink));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 18px rgba(157,78,221,.5))}
+  .sub{margin-top:6px;font-size:11.5px;color:var(--dim)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    box-shadow:0 14px 44px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.06);
+    padding:16px;margin-bottom:14px}
+  .stage{position:relative;text-align:center;padding:22px 14px 20px;overflow:hidden;border-radius:18px;
+    background:linear-gradient(160deg,rgba(157,78,221,.16),rgba(76,201,240,.07));
+    border:1px solid var(--line);margin-bottom:12px}
+  .stage::after{content:"";position:absolute;inset:-40%;
+    background:conic-gradient(from 0deg,transparent 0deg,rgba(157,78,221,.16) 60deg,transparent 130deg);
+    animation:spin 7s linear infinite;z-index:0;opacity:0;transition:opacity .3s}
+  .stage.rolling::after{opacity:1}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .stage>*{position:relative;z-index:1}
+  .song{font-size:26px;font-weight:800;line-height:1.25;min-height:34px;
+    word-break:break-word;transition:color .2s}
+  .diffrow{display:flex;align-items:baseline;justify-content:center;gap:12px;margin:8px 0 4px}
+  .diff{font-size:15px;font-weight:900;letter-spacing:.12em;padding:3px 11px;border-radius:8px;
+    background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18)}
+  .num{font-size:52px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;transition:color .2s,text-shadow .2s}
+  .packname{font-size:11.5px;color:var(--dim);letter-spacing:.05em}
+  .tagline{font-size:12px;color:var(--dim);min-height:17px;margin-top:6px;letter-spacing:.04em}
+  .stage.hit{animation:pop .45s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes pop{0%{transform:scale(1)}35%{transform:scale(1.04)}100%{transform:scale(1)}}
+  .burst{position:absolute;left:50%;top:50%;width:12px;height:12px;border-radius:50%;
+    transform:translate(-50%,-50%);pointer-events:none;opacity:0;
+    background:radial-gradient(circle,#fff,rgba(255,255,255,0) 68%)}
+  .burst.go{animation:burst .6s ease-out}
+  @keyframes burst{0%{opacity:.95;width:12px;height:12px}100%{opacity:0;width:540px;height:540px}}
+  .draw{width:100%;border:none;border-radius:16px;padding:18px;cursor:pointer;
+    font-size:19px;font-weight:900;letter-spacing:.22em;color:#fff;font-family:inherit;
+    background:linear-gradient(96deg,var(--purple),var(--blue));
+    box-shadow:0 10px 30px rgba(157,78,221,.48),inset 0 1px 0 rgba(255,255,255,.28);
+    transition:transform .09s,box-shadow .22s,filter .22s}
+  .draw:hover{box-shadow:0 14px 40px rgba(76,201,240,.6);filter:brightness(1.08)}
+  .draw:active{transform:scale(.977)}
+  .draw:disabled{opacity:.55;cursor:not-allowed;filter:grayscale(.25)}
+  .row2{display:flex;gap:10px;margin-top:10px}
+  .row2 button{flex:1;border:1px solid var(--line);background:rgba(157,78,221,.12);color:var(--text);
+    border-radius:13px;padding:11px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .2s,transform .09s}
+  .row2 button:hover{background:rgba(157,78,221,.26)}
+  .row2 button:active{transform:scale(.97)}
+  h2{font-size:11.5px;letter-spacing:.18em;color:var(--dim);margin:0 0 9px;font-weight:700}
+  h2 .cnt{color:var(--purple);letter-spacing:0;font-weight:800}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;min-width:0}
+  .chip{border:1px solid var(--line);background:rgba(255,255,255,.035);color:var(--dim);
+    border-radius:10px;padding:7px 11px;font-size:12.5px;font-weight:700;cursor:pointer;
+    letter-spacing:.04em;font-family:inherit;transition:all .16s;user-select:none;
+    max-width:100%;overflow-wrap:anywhere;word-break:break-word;line-height:1.32;text-align:left}
+  .chip:hover{border-color:rgba(157,78,221,.75)}
+  .chip.on{color:#fff;background:linear-gradient(140deg,rgba(157,78,221,.55),rgba(76,201,240,.3));
+    border-color:rgba(200,160,255,.85);box-shadow:0 0 14px rgba(157,78,221,.45)}
+  .chip.d-FTR.on{background:linear-gradient(140deg,rgba(76,201,240,.6),rgba(76,201,240,.22));box-shadow:0 0 14px rgba(76,201,240,.5)}
+  .chip.d-ETR.on{background:linear-gradient(140deg,rgba(199,125,255,.6),rgba(199,125,255,.22));box-shadow:0 0 14px rgba(199,125,255,.5)}
+  .chip.d-BYD.on{background:linear-gradient(140deg,rgba(247,37,133,.6),rgba(247,37,133,.22));box-shadow:0 0 14px rgba(247,37,133,.5)}
+  .chip.d-INS.on{background:linear-gradient(140deg,rgba(255,214,10,.55),rgba(255,214,10,.2));box-shadow:0 0 14px rgba(255,214,10,.45)}
+  .chip.tiny{padding:5px 9px;font-size:11.5px}
+  .quickrow{display:flex;gap:7px;margin-top:9px;flex-wrap:wrap}
+  .mini{border:1px dashed rgba(157,78,221,.5);background:transparent;color:var(--dim);
+    border-radius:9px;padding:5px 10px;font-size:11.5px;cursor:pointer;font-family:inherit}
+  .mini:hover{color:var(--text);border-color:var(--purple)}
+  .toggles{display:flex;flex-wrap:wrap;gap:16px;margin-top:13px;padding-top:11px;border-top:1px dashed rgba(157,78,221,.3)}
+  .toggles label{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--dim);cursor:pointer}
+  .toggles input{width:16px;height:16px;accent-color:var(--purple);cursor:pointer}
+  .hist{display:flex;flex-direction:column;gap:5px;max-height:200px;overflow:auto}
+  .hi{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:6px 10px;border-radius:10px;
+    background:rgba(255,255,255,.035);border:1px solid rgba(157,78,221,.16)}
+  .hi .i{color:var(--dim);font-size:11px;min-width:20px}
+  .hi .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hi .dd{font-weight:800;font-size:11px;letter-spacing:.06em}
+  .hi .nn{font-weight:800;min-width:30px;text-align:right}
+  .empty{color:var(--dim);font-size:12.5px;text-align:center;padding:12px}
+  .batchlist{display:flex;flex-direction:column;gap:6px}
+  .bitem{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:11px;
+    background:linear-gradient(90deg,rgba(157,78,221,.16),rgba(76,201,240,.06));
+    border:1px solid rgba(157,78,221,.3);animation:slidein .28s ease}
+  @keyframes slidein{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+  .bitem .no{width:22px;height:22px;border-radius:50%;background:rgba(157,78,221,.4);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:800;flex:0 0 auto}
+  .bitem .bnm{flex:1;font-weight:700;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bitem .bdd{font-weight:900;font-size:11.5px;letter-spacing:.06em}
+  .bitem .blv{font-weight:900;font-size:17px;min-width:34px;text-align:right;font-variant-numeric:tabular-nums}
+  .batchtip{font-size:11px;color:var(--dim);text-align:center;margin-top:9px}
+  h2 .mini{float:right;margin-top:-2px}
+  .statline{display:flex;align-items:center;gap:10px;font-size:12px;margin-bottom:6px}
+  .statline .k{min-width:44px;font-weight:800;color:var(--dim);letter-spacing:.04em}
+  .bar{flex:1;height:8px;border-radius:5px;background:rgba(255,255,255,.07);overflow:hidden}
+  .bar>i{display:block;height:100%;width:0;border-radius:5px;transition:width .45s cubic-bezier(.2,1,.3,1)}
+  .statline .v{min-width:28px;text-align:right;color:var(--dim);font-variant-numeric:tabular-nums}
+  .sum{font-size:11.5px;color:var(--dim);text-align:right;margin-top:8px}
+  footer{text-align:center;font-size:11px;color:var(--dim);opacity:.75;margin-top:16px;line-height:1.8}
+  kbd{background:rgba(157,78,221,.2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:11px}
+</style>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#0a0118">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Arcaea抽取">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="description" content="Arcaea 随机曲目抽取器 · 357 首曲目">
+</head>
+<body>
+<div class="bg"></div><div class="grid"></div>
+<div class="wrap">
+  <header>
+    <div class="brand">Arcaea</div>
+    <h1>随机曲目抽取器</h1>
+    <div class="sub" id="subline">加载中…</div>
+  </header>
+
+  <div class="stage" id="stage">
+    <div class="burst" id="burst"></div>
+    <div class="song" id="song">准备就绪</div>
+    <div class="diffrow"><span class="diff" id="diff">--</span><span class="num" id="num">--</span></div>
+    <div class="packname" id="packname"></div>
+    <div class="tagline" id="tag">点击下方按钮开始抽取</div>
+  </div>
+
+  <button class="draw" id="draw">抽　取</button>
+  <div class="row2">
+    <button id="multi">连抽 ×3</button>
+    <button id="clear">重置统计</button>
+  </div>
+
+  <div class="card" id="batchCard" style="display:none;margin-top:14px;border-color:rgba(200,160,255,.5)">
+    <h2>本轮抽取顺序 <span class="cnt" id="batchCnt"></span>
+      <button class="mini" id="batchClear">清空本轮</button>
+    </h2>
+    <div class="batchlist" id="batch"></div>
+    <div class="batchtip">按这个顺序打就行 🎯</div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h2>曲包 <span class="cnt" id="packCnt"></span></h2>
+    <div class="chips" id="packChips"></div>
+    <div class="quickrow">
+      <button class="mini" id="pickMain">只选主线</button>
+      <button class="mini" id="pickAll">全选</button>
+      <button class="mini" id="pickNone">全不选</button>
+    </div>
+    <h2 style="margin-top:16px">难度类型 <span class="cnt" id="diffCnt"></span></h2>
+    <div class="chips" id="diffChips"></div>
+    <h2 style="margin-top:16px">难度等级 <span class="cnt" id="lvCnt"></span></h2>
+    <div class="chips" id="lvChips"></div>
+    <div class="toggles">
+      <label><input type="checkbox" id="sfx" checked> 音效</label>
+      <label><input type="checkbox" id="shake" checked> 震动反馈</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>历史记录</h2>
+    <div class="hist" id="hist"><div class="empty">还没有记录～</div></div>
+  </div>
+
+  <div class="card">
+    <h2>统计分布</h2>
+    <div id="stats"></div>
+    <div class="sum" id="sum"></div>
+  </div>
+
+  <footer>
+    快捷键：<kbd>空格</kbd> 抽取　<kbd>R</kbd> 重置<br>
+    曲目/难度数据来自萌娘百科 Arcaea 谱面信息（357 首）· 数据仅存本机
+  </footer>
+</div>
+
+<script>
+var ARCAEA_SONGS=[["Sayonara Hatsukoi","Arcaea","7",7,"ETR","8",8.5],["Fairytale","Arcaea","7",7,"BYD","9",9.5],["Vexaria","Arcaea","7",7,"BYD","9",9],["Rise","Arcaea","7+",7.8,"","",0],["Lucifer","Arcaea","8",8.2,"","",0],["Snow White","Arcaea","8",8.4,"BYD","9+",9.7],["Shades of Light in a Transcendent Realm","Arcaea","8",8.3,"BYD","9",9.1],["Babaroque","Arcaea","8",8.5,"","",0],["Lost Civilization","Arcaea","9",9.2,"BYD","9+",9.8],["GOODTEK (Arcaea Edit)","Arcaea","9",9.3,"BYD","9+",9.8],["qualia -ideaesthesia-","Arcaea","9",9.1,"BYD","9+",9.8],["Dement ~after legend~","Arcaea","7+",7.8,"BYD","9+",9.9],["Dandelion","Arcaea","8",8.5,"","",0],["Infinity Heaven","Arcaea","7+",7.8,"BYD","9",9.6],["Anokumene","Arcaea","9",9.2,"BYD","9+",9.9],["Brand new world","Arcaea","7+",7.8,"","",0],["Chronostasis","Arcaea","8+",8.9,"","",0],["Kanagawa Cyber Culvert","Arcaea","9",9,"BYD","9+",9.8],["Clotho and the stargazer","Arcaea","7+",7.8,"ETR","8+",8.8],["Ignotus","Arcaea","9",9.3,"BYD","9+",9.9],["Harutopia ~Utopia of Spring~","Arcaea","8",8.5,"","",0],["Rabbit In The Black Room","Arcaea","8",8.4,"","",0],["One Last Drive","Arcaea","8",8.2,"","",0],["Dreamin' Attraction!!","Arcaea","9",9.4,"","",0],["Red and Blue","Arcaea","9",9.4,"BYD","10",10.2],["Reinvent","Arcaea","8",8.5,"","",0],["Syro","Arcaea","9",9.3,"","",0],["Blaster","Arcaea","9",9.3,"","",0],["Cybernecia Catharsis","Arcaea","9",9.5,"BYD","9+",9.8],["inkar-usi","Arcaea","7+",7.8,"BYD","9",9.4],["Suomi","Arcaea","7+",7.8,"ETR","8+",8.9],["Bookmaker (2D Version)","Arcaea","8",8.3,"BYD","10",10],["Illegal Paradise","Arcaea","9",9.5,"","",0],["Nhelv","Arcaea","9+",9.9,"BYD","10+",10.9],["LunarOrbit -believe in the Espebranch road-","Arcaea","9",9.6,"","",0],["Purgatorium","Arcaea","8",8.4,"BYD","9",9.6],["Rugie","Arcaea","9",9.2,"","",0],["Grimheart","Arcaea","8+",8.7,"","",0],["ReviXy","Arcaea","9",9.1,"","",0],["VECTOЯ","Arcaea","9",9.4,"","",0],["SUPERNOVA","Arcaea","9+",9.7,"","",0],["Diode","Arcaea","8",8.1,"","",0],["FREEF4LL","Arcaea","8",8.6,"BYD","9+",9.8],["Monochrome Princess","Arcaea","9+",9.7,"","",0],["Senkyou","Arcaea","8+",8.7,"","",0],["world.execute(me);","Arcaea","8",8,"","",0],["Oblivia","Arcaea","8",8.3,"BYD","9+",9.7],["Ävril -Flicka i krans-","Arcaea","8",8.3,"","",0],["NULCTRL","Arcaea","9",9.5,"","",0],["Sakura Fubuki","Arcaea","9",9.4,"","",0],["DDD","Arcaea","8",8.5,"","",0],["Dancin' on a Cat's Paw","Arcaea","9",9.2,"","",0],["san skia","Arcaea","8",8.3,"","",0],["Altair (feat. *spiLa*)","Arcaea","8",8.5,"","",0],["Redraw the Colorless World","Arcaea","9",9.2,"","",0],["Trap Crow","Arcaea","9+",9.9,"","",0],["Dialnote","Arcaea","8+",8.8,"","",0],["Remind the Souls (Short Version)","Arcaea","9",9.6,"","",0],["The Formula","Arcaea","9",9.3,"","",0],["Jingle","Arcaea","7+",7.8,"ETR","9",9.5],["Hidden Rainbows of Epicurus","Arcaea","7",7.5,"ETR","8+",8.8],["SATISFACTION","Arcaea","8",8.5,"ETR","9",9.5],["Dematerialized","Arcaea","7",7.5,"ETR","8",8.3],["Gimme Caramel Popcorn!","Arcaea","8",8.1,"ETR","9",9.1],["mod","World Extend 4: Emanations","9",9.4,"","",0],["Paradox Palette","World Extend 4: Emanations","8+",8.8,"ETR","9+",9.9],["Wake in Hour","World Extend 4: Emanations","7",7.5,"ETR","8+",8.7],["Particle","World Extend 4: Emanations","9",9.5,"ETR","9+",9.7],["Xxium and Purple haze","World Extend 4: Emanations","9+",9.9,"ETR","10",10.5],["taboo tears you up 2017","World Extend 4: Emanations","8",8.4,"ETR","9+",9.8],["undefined","World Extend 4: Emanations","9",9.4,"","",0],["~_+","World Extend 4: Emanations","9+",9.9,"","",0],["OMAJINAI","World Extend 4: Emanations","9",9.4,"","",0],["The Forgotten Forest Haven","World Extend 4: Emanations","9+",9.7,"","",0],["Vallista","World Extend 4: Emanations","9+",9.7,"","",0],["3rd Avenue","World Extend 4: Emanations","9",9.2,"","",0],["Riot in the System","World Extend 4: Emanations","9",9.5,"ETR","10",10.1],["MIRROR - kamome sano remix","World Extend 4: Emanations","9+",9.9,"","",0],["Cosmogyral","World Extend 4: Emanations","8",8.6,"ETR","9+",9.8],["flexidefine","World Extend 4: Emanations","9+",9.9,"","",0],["cry of viyella","Eternal Core","8+",8.7,"","",0],["I've heard it said","Eternal Core","8",8.1,"","",0],["memoryfactory.lzh","Eternal Core","8+",8.9,"","",0],["Relentless","Eternal Core","8",8,"","",0],["Lumia","Eternal Core","8",8.4,"BYD","9",9.5],["Essence of Twilight","Eternal Core","9",9.1,"","",0],["PRAGMATISM","Eternal Core","10",10.1,"BYD","11",11.2],["Sheriruth","Eternal Core","10",10,"","",0],["Solitary Dream","Eternal Core","8+",8.8,"","",0],["Iconoclast","Vicious Labyrinth","9",9.1,"","",0],["SOUNDWiTCH","Vicious Labyrinth","9+",9.8,"","",0],["trappola bewitching","Vicious Labyrinth","9+",9.9,"BYD","10",10.6],["conflict","Vicious Labyrinth","10",10.2,"","",0],["Axium Crisis","Vicious Labyrinth","10",10.6,"BYD","11",11.3],["Grievous Lady","Vicious Labyrinth","11",11.1,"","",0],["Maze No.9","Luminous Sky","8+",8.9,"","",0],["The Message","Luminous Sky","9+",9.7,"","",0],["Sulfur","Luminous Sky","9+",9.7,"","",0],["Halcyon","Luminous Sky","10",10.5,"","",0],["Ether Strike","Luminous Sky","10",10.3,"","",0],["Fracture Ray","Luminous Sky","11",11.1,"","",0],["Saint or Sinner","Adverse Prelude","8+",8.8,"BYD","10",10.4],["Vindication","Adverse Prelude","9",9.6,"","",0],["Heavensdoor","Adverse Prelude","9+",9.9,"BYD","10+",10.8],["Ringed Genesis","Adverse Prelude","10+",10.8,"","",0],["BLRINK","Adverse Prelude","9+",9.7,"","",0],["Equilibrium","Black Fate","9",9.4,"","",0],["Antagonism","Black Fate","9+",9.9,"","",0],["Lost Desire","Black Fate","9+",9.8,"","",0],["Dantalion","Black Fate","10+",10.8,"","",0],["#1f1e33","Black Fate","11",11.1,"","",0],["Tempestissimo","Black Fate","10+",10.7,"BYD","11",11.7],["Arcahv","Black Fate","9+",9.9,"","",0],["Defection","Final Verdict","9+",9.8,"","",0],["Infinite Strife,","Final Verdict","9+",9.9,"BYD","10+",10.9],["World Ender","Final Verdict","10",10,"BYD","11",11.1],["Pentiment","Final Verdict","10",10.4,"BYD","11",11.5],["Arcana Eden","Final Verdict","10",10.5,"BYD","11",11.6],["Testify","Final Verdict","10+",10.9,"BYD","12",12],["Loveless Dress","Final Verdict - Silent Answer","9+",9.7,"","",0],["Last","Final Verdict - Silent Answer","9",9,"","",0],["Callima Karma","Final Verdict - Silent Answer","9+",9.8,"","",0],["WAIT FOR DAWN","Lasting Eden","8+",8.7,"","",0],["Raven's Pride","Lasting Eden","9",9.4,"","",0],["Rise of the World","Lasting Eden","10",10.5,"","",0],["UNKNOWN LEVELS","Lasting Eden","10",10.6,"","",0],["Abstruse Dilemma","Lasting Eden","11",11.3,"","",0],["Primeval Texture","Lasting Eden Chapter 2","9",9,"","",0],["Technicolour","Lasting Eden Chapter 2","9+",9.8,"","",0],["Logos","Lasting Eden Chapter 2","10",10.2,"","",0],["Ego Eimi","Lasting Eden Chapter 2","10",10.5,"","",0],["Arghena","Lasting Eden Chapter 2","11",11.3,"","",0],["Transient Space","Shifting Veil","9",9.5,"","",0],["Nameless Passion","Shifting Veil","9+",9.8,"","",0],["TeraVolt","Shifting Veil","10+",10.8,"","",0],["In Vain","Absolute Nihil","9",9.5,"","",0],["Hypnotize","Absolute Nihil","8+",8.9,"ETR","9+",9.9],["Ashen 6oundary","Absolute Nihil","9+",9.9,"","",0],["Judgement","Absolute Nihil","10",10.5,"","",0],["ALTER EGO","Absolute Nihil","10",10.5,"ETR","11",11.3],["Swan Song","Lucent Historia","9+",9.9,"","",0],["Renegade","Lucent Historia","9",9.6,"BYD","10",10.2],["Rays of Remnant","Lucent Historia","9+",9.7,"BYD","10",10.4],["Breach of Faith","Lucent Historia","10",10.3,"BYD","10+",10.9],["Lament Rain","Lucent Historia","10",10.6,"BYD","11",11.4],["Designant.","Lucent Historia","10+",10.9,"BYD","11+",11.9],["Astral Quantization","Lucent Historia","10",10.6,"","",0],["Viola Illyria","Liminal Eclipse","9",9.5,"","",0],["Vainspire","Liminal Eclipse","8",8.4,"ETR","9+",9.9],["No Way Back","Liminal Eclipse","8+",8.9,"ETR","10",10.4],["ANDORXOR","Liminal Eclipse","9+",9.9,"ETR","10+",10.8],["Undying Macula","Liminal Eclipse","10",10.1,"ETR","11",11],["Balor","Divine Oblivion","9",9.5,"ETR","10",10.1],["DREAD AREA","Divine Oblivion","10",10.3,"INS","11",11.4],["un","Divine Oblivion","9+",9.9,"ETR","10+",10.9],["Riven Pilgrimage","Divine Oblivion","10",10.4,"INS","11",11.5],["Cataclysm Cry","Divine Oblivion","10",10.6,"INS","11+",11.8],["DEINOS PHAINEIN","Divine Oblivion","10+",10.9,"INS","12",12],["Ember","Divine Oblivion","9+",9.9,"","",0],["⊥⊬","Divine Oblivion","10+",10.7,"","",0],["Paradise","Crimson Solace","7+",7.8,"","",0],["Flashback","Crimson Solace","8+",8.9,"","",0],["Flyburg and Endroll","Crimson Solace","9",9,"","",0],["Party Vinyl","Crimson Solace","9",9.4,"BYD","10",10.3],["Nirv lucE","Crimson Solace","10",10.2,"","",0],["GLORY：ROAD","Crimson Solace","10",10.5,"","",0],["Blossoms","Ambivalent Vision","7",7,"","",0],["Romance Wars","Ambivalent Vision","7+",7.8,"","",0],["Moonheart","Ambivalent Vision","8",8.4,"BYD","9+",9.7],["Genesis","Ambivalent Vision","8",8.2,"","",0],["Lethaeus","Ambivalent Vision","9+",9.7,"","",0],["corps-sans-organes","Ambivalent Vision","10",10.6,"","",0],["next to you","Binary Enfold","8+",8.8,"BYD","9",9.6],["Silent Rush","Binary Enfold","8",8.6,"","",0],["Strongholds","Binary Enfold","9",9.2,"","",0],["Memory Forest","Binary Enfold","9+",9.8,"","",0],["Singularity","Binary Enfold","10",10.5,"BYD","10",10.4],["Cosmica","Shared Time","8+",8.8,"","",0],["Ascent","Shared Time","9+",9.8,"","",0],["Live Fast Die Young","Shared Time","10",10.6,"","",0],["Antithese","Absolute Reason","8+",8.8,"BYD","9",9.6],["Corruption","Absolute Reason","9+",9.8,"","",0],["Black Territory","Absolute Reason","9+",9.8,"","",0],["Vicious Heroism","Absolute Reason","10",10,"BYD","11",11.2],["Cyaegha","Absolute Reason","10+",10.7,"","",0],["Chelsea","Sunset Radiance","8+",8.9,"","",0],["AI[UE]OON","Sunset Radiance","9",9.4,"","",0],["A Wandering Melody of Love","Sunset Radiance","9",9.6,"","",0],["Tie me down gently","Sunset Radiance","8",8.3,"","",0],["Valhalla:0","Sunset Radiance","10",10.2,"","",0],["Hotarubi no Yuki","Sunset Radiance","9+",9.7,"","",0],["Eccentric Tale","Ephemeral Page","8",8.4,"BYD","9+",9.9],["Alice à la mode","Ephemeral Page","9",9.2,"","",0],["Alice's Suitcase","Ephemeral Page","9",9.1,"","",0],["Jump","Ephemeral Page","9",9,"","",0],["Felis","Ephemeral Page","10",10.4,"","",0],["Beside You","The Journey Onwards","8+",8.7,"","",0],["Heart Jackin'","The Journey Onwards","9+",9.7,"","",0],["To: Alice Liddell","The Journey Onwards","10",10.3,"","",0],["First Snow","Divided Heart","7+",7.8,"","",0],["Blocked Library","Divided Heart","9",9.3,"","",0],["Blue Rose","Divided Heart","9",9.1,"","",0],["neo kosmo","Divided Heart","9+",9.7,"","",0],["Lightning Screw","Divided Heart","10",10.5,"","",0],["Paper Witch","Esoteric Order","8+",8.7,"","",0],["Crystal Gravity","Esoteric Order","9",9.4,"","",0],["Far Away Light","Esoteric Order","9+",9.8,"","",0],["Löschen","Esoteric Order","10",10.2,"","",0],["Aegleseeker","Esoteric Order","11",11.2,"","",0],["Seclusion","Esoteric Order","10",10.6,"","",0],["Coastal Highway","Pale Tapestry","9",9.1,"","",0],["ΟΔΥΣΣΕΙΑ","Pale Tapestry","9",9.5,"","",0],["Overwhelm","Pale Tapestry","10",10.6,"","",0],["Small Cloud Sugar Candy","Light of Salvation","9",9.3,"BYD","10",10.3],["AlterAle","Light of Salvation","9+",9.7,"","",0],["Divine Light of Myriad","Light of Salvation","10+",10.8,"","",0],["See the Lights!","Extant Anima","8",8.6,"ETR","9",9.6],["Scarlet Lunar Empress","Extant Anima","9+",9.8,"","",0],["Dual Dependency","Extant Anima","9",9.5,"ETR","10",10.4],["Lilly","Extant Anima","9+",9.9,"ETR","10+",10.8],["Extradimensional Cosmic Phenomenon","Extant Anima","10",10.6,"ETR","11",11.3],["Factorder","Chapter Experientia","8",8.6,"ETR","9",9.6],["incomplete the one","Chapter Experientia","8+",8.8,"ETR","9+",9.9],["CHAOSBLAST","Chapter Experientia","9",9.6,"ETR","10",10.5],["Welcome, Queen of Fiction.","Chapter Experientia","10",10.1,"ETR","10+",10.9],["AlterGate","Chapter Experientia","10+",10.7,"","",0],["Moonlight of Sand Castle","Dynamix Collaboration","7+",7.8,"","",0],["REconstruction","Dynamix Collaboration","8",8.4,"","",0],["Evoltex (poppi'n mix)","Dynamix Collaboration","8+",8.9,"","",0],["Oracle","Dynamix Collaboration","9",9.3,"","",0],["aterlbus","Dynamix Collaboration","10",10.2,"","",0],["Dream goes on","Lanota Collaboration","7+",7.8,"","",0],["Journey","Lanota Collaboration","9",9.1,"","",0],["Specta","Lanota Collaboration","9",9.4,"","",0],["Quon","Lanota Collaboration","9",9.6,"","",0],["cyanine","Lanota Collaboration","10",10.6,"","",0],["Prism","Lanota Collaboration Chapter 2","8",8,"","",0],["Protoflicker","Lanota Collaboration Chapter 2","9+",9.8,"","",0],["Stasis","Lanota Collaboration Chapter 2","10+",10.8,"","",0],["Hall of Mirrors","Tone Sphere Collaboration","8",8.2,"","",0],["Hikari","Tone Sphere Collaboration","8",8.1,"","",0],["STAGER (ALL STAGE CLEAR)","Tone Sphere Collaboration","9",9.5,"","",0],["Linear Accelerator","Tone Sphere Collaboration","9+",9.8,"","",0],["Tiferet","Tone Sphere Collaboration","10",10.3,"","",0],["MERLIN","Groove Coaster Collaboration","8+",8.9,"BYD","9",9.4],["OMAKENO Stroke","Groove Coaster Collaboration","9",9.5,"BYD","10",10.3],["DX Choseinou Full Metal Shojo","Groove Coaster Collaboration","9+",9.7,"","",0],["Scarlet Lance","Groove Coaster Collaboration","10",10,"","",0],["ouroboros -twin stroke of the end-","Groove Coaster Collaboration","10+",10.7,"","",0],["Got hive of Ra","Groove Coaster Collaboration","9+",9.8,"","",0],["Sign of \"10.5km\"","Groove Coaster Chapter 2","9",9.2,"","",0],["10pt8ion","Groove Coaster Chapter 2","9+",9.8,"ETR","10",10.5],["Black MInD","Groove Coaster Chapter 2","10+",10.8,"","",0],["Garakuta Doll Play","CHUNITHM Collaboration","10",10.4,"","",0],["Ikazuchi","CHUNITHM Collaboration","10",10.3,"","",0],["World Vanquisher","CHUNITHM Collaboration","10+",10.7,"","",0],["Climax","CHUNITHM Collaboration Chapter 2","10",10.4,"","",0],["Last Celebration","CHUNITHM Collaboration Chapter 2","10",10.4,"","",0],["Misdeed -la bonté de Dieuet l'origine du mal-","CHUNITHM Collaboration Chapter 2","10+",10.9,"","",0],["Cosmo Pop Funclub","CHUNITHM Collaboration Chapter 3","8+",8.8,"","",0],["Genesis","CHUNITHM Collaboration Chapter 3","9+",9.8,"","",0],["IMPACT","CHUNITHM Collaboration Chapter 3","9",9.6,"BYD","10",10.4],["Trrricksters!!","CHUNITHM Collaboration Chapter 3","10",10.1,"","",0],["Spider's Thread","CHUNITHM Collaboration Chapter 3","10+",10.8,"","",0],["Ignition","CHUNITHM Collaboration Chapter 4","9+",9.8,"","",0],["BlazinG AIR","CHUNITHM Collaboration Chapter 4","8+",8.9,"ETR","10",10.1],["8-EM","CHUNITHM Collaboration Chapter 4","9",9.5,"ETR","10",10.3],["DA'AT -The First Seeker of Souls-","CHUNITHM Collaboration Chapter 4","10+",10.9,"","",0],["Aether Crest: Astral","CHUNITHM Collaboration Chapter 4","10",10.6,"ETR","11",11.5],["Lazy Addiction","O.N.G.E.K.I. Collaboration","9",9.6,"","",0],["Dazzle hop","O.N.G.E.K.I. Collaboration","9+",9.7,"","",0],["Viyella's Tears","O.N.G.E.K.I. Collaboration","10",10.3,"","",0],["w4","O.N.G.E.K.I. Collaboration","10+",10.8,"","",0],["Heart","O.N.G.E.K.I. Collaboration Chapter 2","9",9.6,"","",0],["Ai Drew","O.N.G.E.K.I. Collaboration Chapter 2","9+",9.8,"","",0],["FLUFFY FLASH","O.N.G.E.K.I. Collaboration Chapter 2","9+",9.8,"","",0],["Good bye, Merry-Go-Round.","O.N.G.E.K.I. Collaboration Chapter 2","10",10.6,"","",0],["LAMIA","O.N.G.E.K.I. Collaboration Chapter 2","11",11,"","",0],["LiftOff","O.N.G.E.K.I. Collaboration Chapter 3","8",8.2,"ETR","9+",9.8],["SUPER AMBULANCE","O.N.G.E.K.I. Collaboration Chapter 3","10",10.3,"","",0],["Don't Fight The Music","O.N.G.E.K.I. Collaboration Chapter 3","9",9.3,"ETR","10+",10.7],["And Revive The Melody","O.N.G.E.K.I. Collaboration Chapter 3","10+",10.9,"","",0],["April showers","maimai Collaboration","8",8.6,"","",0],["7thSense","maimai Collaboration","9+",9.9,"","",0],["Oshama Scramble!","maimai Collaboration","10",10,"","",0],["AMAZING MIGHTYYYY!!!!","maimai Collaboration","10+",10.7,"","",0],["CYCLES","maimai Collaboration Chapter 2","8+",8.8,"","",0],["MAXRAGE","maimai Collaboration Chapter 2","9+",9.9,"","",0],["[X]","maimai Collaboration Chapter 2","10",10.6,"","",0],["TEmPTaTiON","maimai Collaboration Chapter 2","10+",10.9,"","",0],["BREaK! BREaK! BREaK!","maimai Collaboration Chapter 3","8+",8.8,"ETR","10",10.3],["Straight into the lights","maimai Collaboration Chapter 3","9",9.5,"ETR","10",10.5],["ViRTUS","maimai Collaboration Chapter 3","9+",9.9,"ETR","10+",10.9],["yomibito_shirazu","maimai Collaboration Chapter 3","9+",9.8,"","",0],["Quon","WACCA Collaboration","8+",8.7,"BYD","10",10.2],["Let you DIVE! (nitro rmx)","WACCA Collaboration","9",9.4,"","",0],["with U","WACCA Collaboration","9",9.4,"","",0],["Mazy Metroplex","WACCA Collaboration","9+",9.8,"","",0],["GENOCIDER","WACCA Collaboration","10+",10.8,"","",0],["Stratoliner","WACCA Collaboration Chapter 2","9",9.6,"","",0],["Ouvertüre","WACCA Collaboration Chapter 2","9+",9.8,"","",0],["XTREME","WACCA Collaboration Chapter 2","10",10.5,"","",0],["eden","WACCA Collaboration Chapter 2","10",10.5,"","",0],["Meta-Mysteria","WACCA Collaboration Chapter 2","10+",10.8,"","",0],["Lights of Muse","Muse Dash Collaboration","8+",8.9,"","",0],["Final Step!","Muse Dash Collaboration","9",9.4,"","",0],["Haze of Autumn","Muse Dash Collaboration","9+",9.8,"","",0],["Medusa","Muse Dash Collaboration","10",10.1,"","",0],["Bullet Waiting for Me (James Landino remix)","CYTUS II Collaboration","8",8.1,"","",0],["Devillic Sphere","CYTUS II Collaboration","9+",9.9,"","",0],["Lucid Traveler","CYTUS II Collaboration","10",10.5,"","",0],["CHAOS","CYTUS II Collaboration","10+",10.9,"","",0],["Used to be","CYTUS II Collaboration","9",9.2,"","",0],["syūten","CYTUS II Collaboration Chapter 2","8",8.5,"","",0],["DRG","CYTUS II Collaboration Chapter 2","9",9.4,"","",0],["99 Glooms","CYTUS II Collaboration Chapter 2","10",10.3,"","",0],["II","CYTUS II Collaboration Chapter 2","10+",10.8,"","",0],["Magnolia","CYTUS II Collaboration Chapter 2","10",10.2,"","",0],["Waltz for Lorelei","Rotaeno Collaboration","8+",8.8,"ETR","9+",9.8],["Dual Doom Deathmatch","Rotaeno Collaboration","8+",8.9,"ETR","10",10.3],["Inverted World","Rotaeno Collaboration","9",9.5,"ETR","10+",10.7],["MVURBD","Rotaeno Collaboration","10",10.6,"","",0],["Vulcānus","Rotaeno Collaboration","10+",10.9,"","",0],["Ladymade Star","DJMAX Collaboration","8",8.4,"ETR","9",9.2],["U.A.D","DJMAX Collaboration","8+",8.7,"ETR","9+",9.8],["End of The Moonlight","DJMAX Collaboration","9",9.5,"","",0],["OBLIVION","DJMAX Collaboration","9",9.5,"ETR","10",10.1],["Nightmare","DJMAX Collaboration","9+",9.8,"ETR","10+",10.8],["I want You","DJMAX Collaboration Chapter 2","8",8.3,"ETR","9",9.4],["BlythE","DJMAX Collaboration Chapter 2","9",9.4,"ETR","10",10.5],["Syriana","DJMAX Collaboration Chapter 2","9+",9.9,"","",0],["Liar","DJMAX Collaboration Chapter 2","10",10,"","",0],["We're All Gonna Die","DJMAX Collaboration Chapter 2","10",10.1,"ETR","10+",10.9],["CHAIN2NITE","MEGAREX Collaboration","8",8.6,"ETR","9+",9.9],["One Step Closer","MEGAREX Collaboration","9",9.5,"","",0],["Melty Rhapsody","MEGAREX Collaboration","9",9.6,"ETR","10",10.4],["My life is mine alone!","MEGAREX Collaboration","8+",8.8,"ETR","10",10.1],["Signal","MEGAREX Collaboration","9+",9.8,"ETR","10+",10.7],["Heartache","UNDERTALE","7",7.5,"ETR","8+",8.7],["Death By Glamour","UNDERTALE","7+",7.8,"ETR","9",9.4],["Your Best Nightmare","UNDERTALE","8+",8.9,"BYD","10",10.2],["Last Goodbye","UNDERTALE","8",8.2,"ETR","9+",9.7],["MEGALOVANIA","UNDERTALE","9",9.5,"ETR","10",10.5],["Spider Dance","UNDERTALE Pack Append","7+",7.8,"ETR","9",9.5],["Spear of Justice","UNDERTALE Pack Append","8",8.6,"ETR","9+",9.9],["ASGORE","UNDERTALE Pack Append","8+",8.8,"ETR","10",10.2],["INFINITE DIMENSION","Arcaea Next Stage","8",8.6,"ETR","10",10.1],["INCARNATOR₀₀","Arcaea Next Stage","8+",8.9,"ETR","10",10.4],["zephyrlasting","Arcaea Next Stage","9",9.5,"ETR","10",10.3],["MARENYX","Arcaea Next Stage","9",9.5,"ETR","10",10.8],["Code: Oblivion","Arcaea Next Stage","9+",9.9,"ETR","10+",10.9],["ΛZΛLEΛ","Arcaea Next Stage","9",9.4,"ETR","10",10],["Lavie","Virtual Singers","8+",8.8,"ETR","9+",9.9],["Love me, Love me, Love me","Virtual Singers","8+",8.7,"ETR","10",10.5],["Override","Virtual Singers","9",9.5,"ETR","10",10.2],["Telepathy","Virtual Singers","9",9.6,"ETR","10",10.4],["God-ish","Virtual Singers","9",9.3,"ETR","10",10]];
+</script>
+<script>
+'use strict';
+(function () {
+  var MAIN_PACKS = ['Eternal Core', 'Vicious Labyrinth', 'Luminous Sky', 'Adverse Prelude', 'Black Fate',
+    'Final Verdict', 'Final Verdict - Silent Answer', 'Lasting Eden', 'Absolute Nihil',
+    'Lucent Historia', 'Liminal Eclipse', 'Divine Oblivion'];
+  var DIFFS = ['FTR', 'BYD', 'ETR', 'INS'];
+  var LVS = ['10', '10+', '11', '11+', '12'];
+  var DCOLOR = { FTR: '#4cc9f0', BYD: '#f72585', ETR: '#c77dff', INS: '#ffd60a' };
+  // 每个难度真实存在的等级范围（依据 357 首实际数据）
+  var DIFF_LVS = {
+    FTR: ['10', '10+', '11'],
+    BYD: ['10', '10+', '11', '11+', '12'],
+    ETR: ['10', '10+', '11'],
+    INS: ['11', '11+', '12']
+  };
+  var SAVE = 'arcaea-draw-v2';
+  var QUOTES = {
+    '10': ['热身级别，稳住', '轻松拿下～', '这个难度，随便打'],
+    '10+': ['有点意思了', '手感要在线', '别掉以轻心'],
+    '11': ['认真打', 'PM 有难度了', '会出汗的'],
+    '11+': ['高风险区域', '手速要跟上', '建议先开练习模式'],
+    '12': ['究极难度', '祝你好运', '这是给神仙准备的', '手：我不行了']
+  };
+
+  var el = function (id) { return document.getElementById(id); };
+  var state = { packs: [], diffs: DIFFS.slice(), lvs: LVS.slice(), hist: [], stats: {}, sfx: true, shake: true, rolling: false, batch: [], batchNo: 0 };
+  var allPacks = [];
+  var packCount = {};
+
+  // ---------- 音效 ----------
+  var ac = null;
+  function ensureAudio() { if (ac) return; try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; } }
+  function tone(f, d, t, v, dl) {
+    if (!state.sfx || !ac) return;
+    try {
+      var t0 = ac.currentTime + (dl || 0), o = ac.createOscillator(), g = ac.createGain();
+      o.type = t || 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(v == null ? .14 : v, t0);
+      g.gain.exponentialRampToValueAtTime(.0001, t0 + d);
+      o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0 + d + .02);
+    } catch (e) {}
+  }
+  function sfxTick() { tone(1100 + Math.random() * 500, .035, 'square', .05); }
+  function sfxHit() { tone(523.25, .16, 'triangle', .16); tone(783.99, .16, 'triangle', .14, .07); tone(1046.5, .26, 'sine', .16, .14); }
+  function sfxSoft() { tone(660, .08, 'sine', .09); }
+
+  // ---------- 池 ----------
+  function validPairs() {
+    var pool = [];
+    for (var i = 0; i < ARCAEA_SONGS.length; i++) {
+      var s = ARCAEA_SONGS[i];
+      if (state.packs.indexOf(s[1]) < 0) continue;
+      // FTR
+      if (state.diffs.indexOf('FTR') >= 0 && s[2] && state.lvs.indexOf(s[2]) >= 0) {
+        pool.push({ n: s[0], p: s[1], d: 'FTR', lv: s[2], c: s[3] });
+      }
+      // 第四难度
+      if (s[4] && state.diffs.indexOf(s[4]) >= 0 && s[5] && state.lvs.indexOf(s[5]) >= 0) {
+        pool.push({ n: s[0], p: s[1], d: s[4], lv: s[5], c: s[6] });
+      }
+    }
+    return pool;
+  }
+
+  // ---------- UI ----------
+  function buildChips() {
+    var pc = el('packChips'), dc = el('diffChips'), lc = el('lvChips');
+    pc.innerHTML = ''; dc.innerHTML = ''; lc.innerHTML = '';
+    allPacks.forEach(function (p) {
+      var b = document.createElement('button');
+      b.className = 'chip tiny' + (MAIN_PACKS.indexOf(p) >= 0 ? ' on' : '');
+      b.textContent = p + ' ' + packCount[p];
+      b.dataset.pack = p;
+      b.onclick = function () {
+        var i = state.packs.indexOf(p);
+        if (i >= 0) state.packs.splice(i, 1); else state.packs.push(p);
+        b.classList.toggle('on', i < 0);
+        sfxSoft(); refreshUI(); save();
+      };
+      pc.appendChild(b);
+    });
+    DIFFS.forEach(function (d) {
+      var b = document.createElement('button');
+      b.className = 'chip d-' + d + ' on';
+      b.textContent = d;
+      b.dataset.diff = d;
+      b.onclick = function () {
+        var i = state.diffs.indexOf(d);
+        if (i >= 0) { if (state.diffs.length === 1) return; state.diffs.splice(i, 1); }
+        else state.diffs.push(d);
+        sfxSoft(); syncChips(); save();
+      };
+      dc.appendChild(b);
+    });
+    LVS.forEach(function (L) {
+      var b = document.createElement('button');
+      b.className = 'chip on'; b.textContent = L; b.dataset.lv = L;
+      b.onclick = function () {
+        var i = state.lvs.indexOf(L);
+        if (i >= 0) { if (state.lvs.length === 1) return; state.lvs.splice(i, 1); }
+        else state.lvs.push(L);
+        sfxSoft(); syncChips(); save();
+      };
+      lc.appendChild(b);
+    });
+  }
+  function syncChips() {
+    document.querySelectorAll('#packChips .chip').forEach(function (b) {
+      b.classList.toggle('on', state.packs.indexOf(b.dataset.pack) >= 0);
+    });
+    document.querySelectorAll('#diffChips .chip').forEach(function (b) {
+      var d = b.dataset.diff, on = state.diffs.indexOf(d) >= 0;
+      b.classList.toggle('on', on);
+      // 该难度在选中的等级里有没有歌
+      var has = DIFF_LVS[d].some(function (x) { return state.lvs.indexOf(x) >= 0; });
+      b.style.opacity = has ? '' : '.35';
+    });
+    document.querySelectorAll('#lvChips .chip').forEach(function (b) {
+      b.classList.toggle('on', state.lvs.indexOf(b.dataset.lv) >= 0);
+    });
+    el('sfx').checked = state.sfx;
+    el('shake').checked = state.shake;
+  }
+  function refreshUI() {
+    syncChips();
+    var pool = validPairs();
+    el('packCnt').textContent = '已选 ' + state.packs.length + '/' + allPacks.length;
+    el('diffCnt').textContent = state.diffs.join(' ');
+    el('lvCnt').textContent = state.lvs.join(' ');
+    el('subline').textContent = '357 首曲目 · 当前可抽 ' + pool.length + ' 个谱面';
+    if (!pool.length) el('tag').textContent = '当前勾选没有可抽取的谱面';
+  }
+
+  // ---------- 抽取 ----------
+  var ROLL_MS = 1500;
+  var pendingDone = null;
+  function roll(isBatch, onDone) {
+    if (state.rolling) return;
+    pendingDone = onDone || null;
+    var pool = validPairs();
+    if (!pool.length) { el('tag').textContent = '当前勾选没有可抽取的谱面（换个曲包/难度）'; pendingDone = null; return; }
+    state.rolling = true;
+    ensureAudio();
+    if (ac && ac.state === 'suspended') ac.resume();
+    el('draw').disabled = true; el('multi').disabled = true;
+    var stage = el('stage');
+    stage.classList.add('rolling');
+    var t0 = Date.now(), lastTick = 0, settled = false;
+    var final = pool[Math.floor(Math.random() * pool.length)];
+    function settle() {
+      if (settled) return;
+      settled = true;
+      clearTimeout(guard);
+      finish(final);
+    }
+    // 兜底：切后台标签页时 rAF 会暂停，用定时器保证一定能结算
+    var guard = setTimeout(settle, ROLL_MS + 900);
+    function frame() {
+      var t = Date.now() - t0;
+      if (t < ROLL_MS) {
+        var r = pool[Math.floor(Math.random() * pool.length)];
+        paint(r, true);
+        if (t - lastTick > 70) { lastTick = t; sfxTick(); }
+        requestAnimationFrame(frame);
+      } else { settle(); }
+    }
+    requestAnimationFrame(frame);
+  }
+  function paint(r, rolling) {
+    el('song').textContent = r.n;
+    el('diff').textContent = r.d;
+    el('diff').style.color = DCOLOR[r.d];
+    el('diff').style.borderColor = DCOLOR[r.d] + '88';
+    el('num').textContent = r.lv;
+    if (rolling) { el('num').style.textShadow = ''; el('packname').textContent = ''; }
+  }
+  function finish(r) {
+    var stage = el('stage');
+    stage.classList.remove('rolling');
+    paint(r, false);
+    var c = DCOLOR[r.d];
+    el('num').style.color = c;
+    el('num').style.textShadow = '0 0 26px ' + c + ', 0 0 60px ' + c + '80';
+    el('song').style.color = '#fff';
+    el('packname').textContent = r.p + (r.c ? '　·　定数 ' + r.c.toFixed(1) : '');
+    el('tag').textContent = QUOTES[r.lv][Math.floor(Math.random() * QUOTES[r.lv].length)];
+    stage.classList.remove('hit'); void stage.offsetWidth; stage.classList.add('hit');
+    var b = el('burst');
+    b.style.background = 'radial-gradient(circle,' + c + ',rgba(255,255,255,0) 68%)';
+    b.classList.remove('go'); void b.offsetWidth; b.classList.add('go');
+    sfxHit();
+    if (state.shake && navigator.vibrate) { try { navigator.vibrate(r.d === 'INS' || r.d === 'BYD' ? 55 : 25); } catch (e) {} }
+    var key = r.d + ' ' + r.lv;
+    state.stats[key] = (state.stats[key] || 0) + 1;
+    state.batch.push({ n: r.n, d: r.d, lv: r.lv, p: r.p });
+    state.hist.unshift({ n: r.n, d: r.d, lv: r.lv, p: r.p, b: state.batchNo });
+    if (state.hist.length > 80) state.hist.pop();
+    save(); renderHist(); renderStats(); renderBatch(); refreshUI();
+    state.rolling = false;
+    el('draw').disabled = false; el('multi').disabled = false;
+    if (pendingDone) { var cb = pendingDone; pendingDone = null; setTimeout(cb, 380); }
+  }
+
+  // ---------- 本轮抽取顺序 ----------
+  function newRound() {
+    state.batch = [];
+    state.batchNo++;
+    renderBatch();
+  }
+  function renderBatch() {
+    var card = el('batchCard'), box = el('batch');
+    if (!card || !box) return;
+    if (!state.batch.length) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    el('batchCnt').textContent = state.batch.length + ' 个';
+    box.innerHTML = '';
+    state.batch.forEach(function (r, i) {
+      var d = document.createElement('div');
+      d.className = 'bitem';
+      d.innerHTML = '<span class="no">' + (i + 1) + '</span>' +
+        '<span class="bnm">' + r.n + '</span>' +
+        '<span class="bdd" style="color:' + DCOLOR[r.d] + '">' + r.d + '</span>' +
+        '<span class="blv">' + r.lv + '</span>';
+      box.appendChild(d);
+    });
+  }
+
+  // ---------- 历史 / 统计 ----------
+  function renderHist() {
+    var box = el('hist');
+    if (!state.hist.length) { box.innerHTML = '<div class="empty">还没有记录～</div>'; return; }
+    box.innerHTML = '';
+    state.hist.slice(0, 40).forEach(function (h, i) {
+      var d = document.createElement('div');
+      d.className = 'hi';
+      d.innerHTML = '<span class="i">' + (i + 1) + '</span>' +
+        '<span class="nm">' + h.n + '</span>' +
+        '<span class="dd" style="color:' + DCOLOR[h.d] + '">' + h.d + '</span>' +
+        '<span class="nn">' + h.lv + '</span>';
+      box.appendChild(d);
+    });
+  }
+  function renderStats() {
+    var box = el('stats'); box.innerHTML = '';
+    var total = 0;
+    Object.keys(state.stats).forEach(function (k) { total += state.stats[k]; });
+    // 按难度
+    var byD = {}; DIFFS.forEach(function (d) { byD[d] = 0; });
+    Object.keys(state.stats).forEach(function (k) {
+      var d = k.split(' ')[0]; if (byD[d] != null) byD[d] += state.stats[k];
+    });
+    var maxD = Math.max(1, Math.max.apply(null, DIFFS.map(function (d) { return byD[d]; })));
+    DIFFS.forEach(function (d) {
+      var line = document.createElement('div');
+      line.className = 'statline';
+      line.innerHTML = '<span class="k" style="color:' + DCOLOR[d] + '">' + d + '</span>' +
+        '<span class="bar"><i style="width:' + (byD[d] / maxD * 100) + '%;background:' + DCOLOR[d] + '"></i></span>' +
+        '<span class="v">' + byD[d] + '</span>';
+      box.appendChild(line);
+    });
+    // 按等级
+    var byL = {}; LVS.forEach(function (L) { byL[L] = 0; });
+    Object.keys(state.stats).forEach(function (k) {
+      var L = k.split(' ')[1]; if (byL[L] != null) byL[L] += state.stats[k];
+    });
+    var maxL = Math.max(1, Math.max.apply(null, LVS.map(function (L) { return byL[L]; })));
+    LVS.forEach(function (L) {
+      var line = document.createElement('div');
+      line.className = 'statline';
+      line.innerHTML = '<span class="k">' + L + '</span>' +
+        '<span class="bar"><i style="width:' + (byL[L] / maxL * 100) + '%;background:linear-gradient(90deg,#4cc9f0,#9d4edd)"></i></span>' +
+        '<span class="v">' + byL[L] + '</span>';
+      box.appendChild(line);
+    });
+    el('sum').textContent = total ? ('共抽取 ' + total + ' 次') : '还没有数据';
+  }
+
+  // ---------- 存储 ----------
+  function save() {
+    try {
+      localStorage.setItem(SAVE, JSON.stringify({
+        packs: state.packs, diffs: state.diffs, lvs: state.lvs,
+        hist: state.hist.slice(0, 80), stats: state.stats, sfx: state.sfx, shake: state.shake
+      }));
+    } catch (e) {}
+  }
+  function load() {
+    try {
+      var d = JSON.parse(localStorage.getItem(SAVE) || 'null');
+      if (!d) return false;
+      if (Array.isArray(d.packs) && d.packs.length) state.packs = d.packs.filter(function (p) { return allPacks.indexOf(p) >= 0; });
+      if (Array.isArray(d.diffs) && d.diffs.length) state.diffs = d.diffs.filter(function (x) { return DIFFS.indexOf(x) >= 0; });
+      if (Array.isArray(d.lvs) && d.lvs.length) state.lvs = d.lvs.filter(function (x) { return LVS.indexOf(x) >= 0; });
+      if (Array.isArray(d.hist)) state.hist = d.hist;
+      if (d.stats && typeof d.stats === 'object') state.stats = d.stats;
+      state.sfx = d.sfx !== false; state.shake = d.shake !== false;
+      if (!state.diffs.length) state.diffs = DIFFS.slice();
+      if (!state.lvs.length) state.lvs = LVS.slice();
+      return true;
+    } catch (e) { return false; }
+  }
+
+  // ---------- 事件 ----------
+  el('draw').onclick = function () { newRound(); roll(false); };
+  el('multi').onclick = function () {
+    if (state.rolling) return;
+    newRound();
+    var done = 0;
+    (function step() {
+      if (done >= 3) return;
+      done++;
+      roll(true, step);
+    })();
+  };
+  el('batchClear').onclick = function () { state.batch = []; renderBatch(); sfxSoft(); };
+  el('clear').onclick = function () {
+    if (!confirm('确定清空历史和统计吗？')) return;
+    state.hist = []; state.stats = {}; save(); renderHist(); renderStats(); refreshUI();
+    el('song').textContent = '已重置'; el('diff').textContent = '--'; el('num').textContent = '--';
+    el('num').style.textShadow = ''; el('packname').textContent = ''; el('tag').textContent = '点击下方按钮开始抽取';
+    sfxSoft();
+  };
+  el('pickMain').onclick = function () {
+    state.packs = allPacks.filter(function (p) { return MAIN_PACKS.indexOf(p) >= 0; });
+    sfxSoft(); refreshUI(); save();
+  };
+  el('pickAll').onclick = function () { state.packs = allPacks.slice(); sfxSoft(); refreshUI(); save(); };
+  el('pickNone').onclick = function () { state.packs = []; sfxSoft(); refreshUI(); save(); };
+  el('sfx').onchange = function () { state.sfx = this.checked; save(); if (state.sfx) { ensureAudio(); sfxSoft(); } };
+  el('shake').onchange = function () { state.shake = this.checked; save(); };
+  document.addEventListener('keydown', function (e) {
+    if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    if (e.code === 'Space') { e.preventDefault(); roll(); }
+    else if (e.key === 'r' || e.key === 'R') { el('clear').click(); }
+  });
+  ['click', 'touchstart', 'keydown'].forEach(function (ev) {
+    window.addEventListener(ev, function once() { ensureAudio(); if (ac && ac.state === 'suspended') ac.resume(); }, { once: true });
+  });
+
+  // 星尘
+  (function () {
+    for (var i = 0; i < 44; i++) {
+      var s = document.createElement('div');
+      s.className = 'star';
+      s.style.left = Math.random() * 100 + 'vw';
+      s.style.top = Math.random() * 100 + 'vh';
+      s.style.animationDelay = (Math.random() * 3) + 's';
+      document.body.appendChild(s);
+    }
+  })();
+
+  // ---------- 启动 ----------
+  (function init() {
+    var seen = {};
+    ARCAEA_SONGS.forEach(function (s) {
+      var p = s[1];
+      if (!p) return;
+      if (!seen[p]) { seen[p] = 1; allPacks.push(p); packCount[p] = 0; }
+      packCount[p]++;
+    });
+    // 主线包排前面
+    allPacks.sort(function (a, b) {
+      var ma = MAIN_PACKS.indexOf(a), mb = MAIN_PACKS.indexOf(b);
+      if (ma >= 0 && mb >= 0) return ma - mb;
+      if (ma >= 0) return -1;
+      if (mb >= 0) return 1;
+      return a.localeCompare(b);
+    });
+    var has = load();
+    if (!has || !state.packs.length) {
+      state.packs = allPacks.filter(function (p) { return MAIN_PACKS.indexOf(p) >= 0; });
+    }
+    buildChips(); refreshUI(); renderHist(); renderStats();
+  })();
+})();
+</script>
+<script>
+(function () {
+  if (!("serviceWorker" in navigator)) return;
+  if (location.protocol === "file:") {
+    console.log("[PWA] file:// 打开，Service Worker 不可用（用本地服务器打开即可离线）");
+    return;
+  }
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("./sw.js").then(function () {
+      console.log("[PWA] Service Worker 已注册（可离线使用）");
+    }).catch(function (e) { console.log("[PWA] SW 注册失败: " + (e && e.message)); });
+  });
+})();
+</script>
+</body>
+</html>
