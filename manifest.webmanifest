@@ -1,0 +1,18 @@
+{
+  "name": "Arcaea 随机曲目抽取器",
+  "short_name": "Arcaea抽取",
+  "description": "从 357 首曲目中随机抽取谱面练习，支持主线曲包筛选、连抽顺序记录、统计分布",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0118",
+  "theme_color": "#0a0118",
+  "categories": ["games", "utilities"],
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
